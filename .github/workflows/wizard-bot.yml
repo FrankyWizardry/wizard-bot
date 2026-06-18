@@ -2,6 +2,52 @@ name: Bitcoin Wizard Bot
 
 on:
   schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wizard-bot
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check for new wizards (Discord)
+        id: run
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python check_wizards.py
+
+      - name: Post to X
+        env:
+          X_API_KEY:             ${{ secrets.X_API_KEY }}
+          X_API_SECRET:          ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN:        ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: python post_x.py
+
+      - name: Save state
+        if: steps.run.outputs.state_changed == 'true'
+        run: |
+          git config user.name "wizard-bot"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add state.json
+          git commit -m "Update wizard state [skip ci]" || echo "nothing to commit"
+          git push
+name: Bitcoin Wizard Bot
+
+on:
+  schedule:
     # Every 10 minutes. (GitHub may delay this a little under load — that's fine,
     # Bitcoin blocks are ~10 min apart so nothing gets missed.)
     - cron: "*/10 * * * *"
