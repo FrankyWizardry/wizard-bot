@@ -1,11 +1,12 @@
 name: Send Test Post
 
-# A one-click way to confirm the Discord webhook works. It posts a single
-# "test" card (the most recent wizard) to your channel. Run it from the
-# Actions tab whenever you want — it never changes saved state.
-
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      post_to_x:
+        description: "Also send a REAL test tweet to X? (type: yes)"
+        required: false
+        default: "no"
 
 jobs:
   test:
@@ -15,7 +16,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Send test card
+
+      - name: Send test card to Discord
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: python test_post.py
+
+      - name: Dry-run X post (always)
+        env:
+          DRY_RUN: "1"
+        run: python post_x.py
+
+      - name: Send REAL test tweet to X (only if requested)
+        if: ${{ github.event.inputs.post_to_x == 'yes' }}
+        env:
+          X_API_KEY:             ${{ secrets.X_API_KEY }}
+          X_API_SECRET:          ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN:        ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: python post_x.py
