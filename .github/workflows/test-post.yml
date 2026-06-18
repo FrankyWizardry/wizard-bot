@@ -1,0 +1,21 @@
+name: Send Test Post
+
+# A one-click way to confirm the Discord webhook works. It posts a single
+# "test" card (the most recent wizard) to your channel. Run it from the
+# Actions tab whenever you want — it never changes saved state.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Send test card
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python test_post.py
