@@ -2,11 +2,13 @@ name: Bitcoin Wizard Bot
 
 on:
   schedule:
+    # Every 10 minutes. (GitHub may delay this a little under load — that's fine,
+    # Bitcoin blocks are ~10 min apart so nothing gets missed.)
     - cron: "*/10 * * * *"
-  workflow_dispatch: {}
+  workflow_dispatch: {}   # adds a "Run workflow" button so you can run it by hand
 
 permissions:
-  contents: write
+  contents: write          # lets the bot save its memory (state.json) back to the repo
 
 concurrency:
   group: wizard-bot
