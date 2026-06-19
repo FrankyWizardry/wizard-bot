@@ -3,21 +3,23 @@
 Bitcoin Wizard -> X (Twitter) bot.
 
 Posts a tweet every time a NEW wizard is inscribed on Bitcoin (a child of parent
-inscription #70). Each tweet contains the wizard's ord.net link, which X
-auto-unfurls into a large image card (the artwork + a link back to ord.net), so
-no image upload is needed.
+inscription #70). Each tweet ATTACHES the wizard artwork as an uploaded image
+(pulled from ord.net's render CDN). The text contains NO link/URL on purpose:
+X bills a post that contains a URL at $0.20 vs $0.015 for a plain post, and it
+auto-links bare domains too — so we keep the text domain-free and put the visual
+in as media instead. @mentions are fine (they are not billed as URLs).
 
-X keeps its OWN state marker (`lastXNumber`) — separate from the Discord bot's
-marker — so the two advance independently. If X has a problem, Discord is
-unaffected, and X simply retries its own missed wizards on the next run.
+X keeps its OWN state marker (`lastXNumber`) — separate from the Discord bot's —
+so the two advance independently. If X has a problem, Discord is unaffected and X
+simply retries its own missed wizards on the next run.
 
 Modes (chosen via environment variables):
-  DRY_RUN=1   Print the tweet that WOULD be sent (sample = latest wizard).
+  DRY_RUN=1   Print the tweet text that WOULD be sent (sample = latest wizard).
               No posting, no state change. Needs no credentials.
-  X_TEST=1    Send ONE real test tweet of the latest wizard. No state change.
+  X_TEST=1    Send ONE real test tweet (latest wizard, with image). No state change.
               (Requires X credentials.)
-  (neither)   Live run: tweet every new wizard, advance lastXNumber, save state.
-              (Requires X credentials.)
+  (neither)   Live run: tweet every new wizard with image, advance lastXNumber,
+              save state. (Requires X credentials.)
 
 X credentials (OAuth 1.0a user context), via environment:
   X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET
@@ -38,12 +40,13 @@ import urllib.error
 # --- Configuration ------------------------------------------------------------
 
 PARENT_ID = "b1c5baa2593b256068635bbc475e0cc439d66c2dcf12e9de6f3aaeaf96ff818bi0"
-ORD = "https://ordinals.com"                 # reliable JSON source for detection
-ORD_NET = "https://ord.net/inscription"      # human-facing link shown in tweets
+ORD = "https://ordinals.com"                       # JSON source for detection
+RENDER = "https://render.ord.net/v4/snapshots/{iid}/512.webp"  # wizard artwork
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 USER_AGENT = "bitcoin-wizard-bot/1.0 (+https://www.bitcoinwizard.com)"
 
-X_API_BASE = "https://api.twitter.com/2/tweets"
+X_TWEET_URL = "https://api.twitter.com/2/tweets"
+X_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json"
 
 # --- HTTP helpers -------------------------------------------------------------
 
@@ -71,6 +74,13 @@ def fetch_all_children():
         if page > 200:
             break
     return children
+
+
+def download_image(iid):
+    url = RENDER.format(iid=iid)
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=45) as r:
+        return r.read()
 
 
 # --- State --------------------------------------------------------------------
@@ -121,6 +131,8 @@ def _oauth_header(method, url, consumer_key, consumer_secret, access_token, toke
         "oauth_token":            access_token,
         "oauth_version":          "1.0",
     }
+    # NOTE: for a JSON body or multipart/form-data, OAuth 1.0a signs only the
+    # oauth_* params (no body), so this header is valid for both endpoints below.
     sig = _oauth_signature(method, url, oauth_params, consumer_secret, token_secret)
     oauth_params["oauth_signature"] = sig
     return "OAuth " + ", ".join(
@@ -129,15 +141,48 @@ def _oauth_header(method, url, consumer_key, consumer_secret, access_token, toke
     )
 
 
-# --- X posting ----------------------------------------------------------------
+# --- X media upload + tweet ---------------------------------------------------
 
-def post_tweet(text, creds):
+def upload_media(image_bytes, filename, mimetype, creds):
     consumer_key, consumer_secret, access_token, token_secret = creds
-    payload = json.dumps({"text": text}).encode()
-    auth = _oauth_header("POST", X_API_BASE, consumer_key, consumer_secret,
+    boundary = "----wiz" + base64.b64encode(os.urandom(12)).decode().strip("=\n")
+    pre = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="media"; filename="{filename}"\r\n'
+        f"Content-Type: {mimetype}\r\n\r\n"
+    ).encode()
+    post = f"\r\n--{boundary}--\r\n".encode()
+    body = pre + image_bytes + post
+    auth = _oauth_header("POST", X_UPLOAD_URL, consumer_key, consumer_secret,
                          access_token, token_secret)
     req = urllib.request.Request(
-        X_API_BASE,
+        X_UPLOAD_URL,
+        data=body,
+        headers={
+            "Authorization": auth,
+            "Content-Type":  f"multipart/form-data; boundary={boundary}",
+            "User-Agent":    USER_AGENT,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            resp = json.load(r)
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"media upload error {e.code}: {e.read().decode(errors='replace')}")
+    return resp["media_id_string"]
+
+
+def post_tweet(text, creds, media_ids=None):
+    consumer_key, consumer_secret, access_token, token_secret = creds
+    body = {"text": text}
+    if media_ids:
+        body["media"] = {"media_ids": list(media_ids)}
+    payload = json.dumps(body).encode()
+    auth = _oauth_header("POST", X_TWEET_URL, consumer_key, consumer_secret,
+                         access_token, token_secret)
+    req = urllib.request.Request(
+        X_TWEET_URL,
         data=payload,
         headers={
             "Authorization": auth,
@@ -151,24 +196,30 @@ def post_tweet(text, creds):
             with urllib.request.urlopen(req, timeout=30) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
-            body = e.read().decode(errors="replace")
-            if e.code == 429:          # rate limited
+            bodytext = e.read().decode(errors="replace")
+            if e.code == 429:
                 time.sleep(15)
             else:
-                raise RuntimeError(f"X API error {e.code}: {body}")
+                raise RuntimeError(f"X API error {e.code}: {bodytext}")
         except Exception:  # noqa: BLE001
             time.sleep(2 * (i + 1))
     raise RuntimeError("Failed to post tweet after several attempts")
 
 
 def build_tweet_text(idx, total, number):
-    # NOTE: deliberately NO link/URL. X bills posts containing a URL at $0.20
-    # vs $0.015 for a plain post, and it auto-links bare domains too — so we
-    # keep the text domain-free to stay on the cheap rate.
+    # No URLs / bare domains (X bills those at the higher rate). @mentions are OK.
     return (
         "✨ A new Bitcoin Wizard has been inscribed!\n"
-        f"Wizard #{idx} of {total} — permanently on-chain ⚡"
+        f"Wizard #{idx} of {total} — permanently on-chain ⚡\n"
+        "The legendary @bitcoinwizardry collection by @mavensbot is coming"
     )
+
+
+def tweet_wizard(creds, idx, total, child, prefix=""):
+    text = prefix + build_tweet_text(idx, total, child["number"])
+    img = download_image(child["id"])
+    media_id = upload_media(img, f"{child['id']}.webp", "image/webp", creds)
+    return post_tweet(text, creds, media_ids=[media_id])
 
 
 def _get_creds():
@@ -177,8 +228,8 @@ def _get_creds():
     if missing:
         print("ERROR: missing X credentials: " + ", ".join(missing), file=sys.stderr)
         sys.exit(1)
-    # .strip() guards against a stray space/newline accidentally pasted into a
-    # secret, which would otherwise break the OAuth signature -> 401.
+    # .strip() guards against a stray space/newline pasted into a secret, which
+    # would otherwise break the OAuth signature -> 401.
     return tuple(os.environ[k].strip() for k in keys)
 
 
@@ -203,9 +254,10 @@ def main():
         latest = children[-1]
         text = build_tweet_text(index_of[latest["id"]], total, latest["number"])
         if dry_run:
-            print("[DRY RUN] would tweet:\n---\n" + text + "\n---")
+            print("[DRY RUN] would tweet (with image attached):\n---\n" + text + "\n---")
             return
-        post_tweet("\U0001f9ea Test — " + text, _get_creds())
+        creds = _get_creds()
+        tweet_wizard(creds, index_of[latest["id"]], total, latest, prefix="\U0001f9ea Test — ")
         print("Test tweet sent. Check @bw_inscribe_bot.")
         return
 
@@ -229,9 +281,8 @@ def main():
     creds = _get_creds()
     print(f"Tweeting {len(new_ones)} new wizard(s).")
     for c in new_ones:
-        text = build_tweet_text(index_of[c["id"]], total, c["number"])
         try:
-            post_tweet(text, creds)
+            tweet_wizard(creds, index_of[c["id"]], total, c)
             print(f"Tweeted Wizard #{index_of[c['id']]} (#{c['number']})")
             # Advance the marker after EACH success so a mid-batch failure never
             # re-tweets earlier ones; the next run resumes from here.
