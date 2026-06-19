@@ -162,10 +162,12 @@ def post_tweet(text, creds):
 
 
 def build_tweet_text(idx, total, number):
+    # NOTE: deliberately NO link/URL. X bills posts containing a URL at $0.20
+    # vs $0.015 for a plain post, and it auto-links bare domains too — so we
+    # keep the text domain-free to stay on the cheap rate.
     return (
         "✨ A new Bitcoin Wizard has been inscribed!\n"
-        f"Wizard #{idx} of {total} — permanently on-chain ⚡\n\n"
-        f"{ORD_NET}/{number}"
+        f"Wizard #{idx} of {total} — permanently on-chain ⚡"
     )
 
 
