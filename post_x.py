@@ -175,7 +175,9 @@ def _get_creds():
     if missing:
         print("ERROR: missing X credentials: " + ", ".join(missing), file=sys.stderr)
         sys.exit(1)
-    return tuple(os.environ[k] for k in keys)
+    # .strip() guards against a stray space/newline accidentally pasted into a
+    # secret, which would otherwise break the OAuth signature -> 401.
+    return tuple(os.environ[k].strip() for k in keys)
 
 
 # --- Main ---------------------------------------------------------------------
