@@ -22,16 +22,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check for new wizards (Discord)
-        id: run
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: python check_wizards.py
-
-      # X posts independently (own lastXNumber marker). continue-on-error keeps a
-      # transient X issue from failing the whole run or blocking the state save;
-      # post_x.py already advances its marker only after each successful tweet,
-      # so the next run safely retries any that didn't go out.
+      # X posts FIRST so it can record each tweet's URL in state.json; the Discord
+      # step then reads those URLs and adds a "View on X" link to its card.
+      # continue-on-error keeps a transient X issue from failing the run or
+      # blocking the Discord post / state save. post_x.py advances its marker only
+      # after each successful tweet, so the next run safely retries any misses.
       - name: Post new wizards to X
         continue-on-error: true
         env:
@@ -40,6 +35,12 @@ jobs:
           X_ACCESS_TOKEN:        ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
         run: python post_x.py
+
+      - name: Check for new wizards (Discord)
+        id: run
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python check_wizards.py
 
       # Always commit if state.json changed — either bot (Discord or X) may have
       # advanced its own marker, so we can't gate on just the Discord step.
