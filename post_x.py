@@ -36,6 +36,7 @@ import time
 import urllib.parse
 import urllib.request
 import urllib.error
+from datetime import datetime, timezone
 
 # --- Configuration ------------------------------------------------------------
 
@@ -288,11 +289,21 @@ def main():
             # Advance the marker after EACH success so a mid-batch failure never
             # re-tweets earlier ones; the next run resumes from here.
             state["lastXNumber"] = c["number"]
+            state.pop("xLastError", None)   # clear any previous failure flag
             save_state(state)
             time.sleep(3)
         except Exception as e:  # noqa: BLE001
+            # Record the failure in state.json (committed by the workflow) so the
+            # daily health check can spot it for free — no X credits spent. The
+            # usual cause is depleted X API credits.
+            state["xLastError"] = {
+                "at": datetime.now(timezone.utc).isoformat(),
+                "wizard": c["number"],
+                "error": str(e)[:300],
+            }
+            save_state(state)
             print(f"ERROR tweeting #{c['number']}: {e}", file=sys.stderr)
-            print("Stopping; next run retries from the last success.", file=sys.stderr)
+            print("Recorded xLastError; next run retries from the last success.", file=sys.stderr)
             break
 
     print(f"Done. lastXNumber now {state.get('lastXNumber')}.")
