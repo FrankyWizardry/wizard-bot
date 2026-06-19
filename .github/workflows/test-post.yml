@@ -1,5 +1,10 @@
 name: Send Test Post
 
+# A one-click way to confirm the Discord webhook and X credentials work.
+# Posts a single "test" card (the most recent wizard) to Discord,
+# and a dry-run preview of what X would post. Run from the Actions tab.
+# Never changes saved state.
+
 on:
   workflow_dispatch:
     inputs:
@@ -30,6 +35,7 @@ jobs:
       - name: Send REAL test tweet to X (only if requested)
         if: ${{ github.event.inputs.post_to_x == 'yes' }}
         env:
+          X_TEST: "1"
           X_API_KEY:             ${{ secrets.X_API_KEY }}
           X_API_SECRET:          ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN:        ${{ secrets.X_ACCESS_TOKEN }}
