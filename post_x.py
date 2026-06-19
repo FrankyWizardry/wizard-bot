@@ -284,12 +284,24 @@ def main():
     print(f"Tweeting {len(new_ones)} new wizard(s).")
     for c in new_ones:
         try:
-            tweet_wizard(creds, index_of[c["id"]], total, c)
+            resp = tweet_wizard(creds, index_of[c["id"]], total, c)
             print(f"Tweeted Wizard #{index_of[c['id']]} (#{c['number']})")
             # Advance the marker after EACH success so a mid-batch failure never
             # re-tweets earlier ones; the next run resumes from here.
             state["lastXNumber"] = c["number"]
             state.pop("xLastError", None)   # clear any previous failure flag
+            # Best-effort: stash the tweet URL so the Discord card can link to it.
+            # Wrapped so a hiccup here can NEVER affect the tweet that just sent.
+            try:
+                tid = (resp or {}).get("data", {}).get("id")
+                if tid:
+                    tu = state.setdefault("tweetUrls", {})
+                    tu[str(c["number"])] = f"https://x.com/bw_inscribe_bot/status/{tid}"
+                    if len(tu) > 50:  # keep state.json small
+                        for old in sorted(tu, key=lambda x: int(x))[:-50]:
+                            tu.pop(old, None)
+            except Exception:  # noqa: BLE001
+                pass
             save_state(state)
             time.sleep(3)
         except Exception as e:  # noqa: BLE001

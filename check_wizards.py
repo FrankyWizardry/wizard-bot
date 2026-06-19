@@ -86,9 +86,9 @@ def save_state(state):
 
 # --- Discord ----------------------------------------------------------------
 
-def build_embed(wizard_index, total, child):
+def build_embed(wizard_index, total, child, tweet_url=None):
     iid = child["id"]
-    return {
+    embed = {
         "title": f"✨ A new Bitcoin Wizard has been inscribed!",
         "url": f"{ORD}/inscription/{iid}",
         "description": (
@@ -99,6 +99,11 @@ def build_embed(wizard_index, total, child):
         "image": {"url": f"{ORD}/content/{iid}"},
         "footer": {"text": "Bitcoin Wizard • Magic Internet Money"},
     }
+    # Optional link to the matching tweet (added by the X bot earlier in the run).
+    # Absent/None -> card is exactly as before, so this can't affect anything.
+    if tweet_url:
+        embed["fields"] = [{"name": "🐦 On X", "value": f"[View on X]({tweet_url})"}]
+    return embed
 
 
 def post_discord(webhook, embed):
@@ -166,12 +171,17 @@ def main():
         )
         if new_ones:
             print(f"Found {len(new_ones)} new wizard(s).")
+            # Tweet URLs the X bot recorded earlier this run (best-effort lookup).
+            tweet_urls = state.get("tweetUrls") or {}
+            if not isinstance(tweet_urls, dict):
+                tweet_urls = {}
             for c in new_ones:
                 idx = index_of[c["id"]]
                 if dry_run:
                     print(f"[DRY RUN] would post Wizard #{idx} ({c['id']})")
                 else:
-                    post_discord(webhook, build_embed(idx, total, c))
+                    tweet_url = tweet_urls.get(str(c["number"]))
+                    post_discord(webhook, build_embed(idx, total, c, tweet_url=tweet_url))
                     print(f"Posted Wizard #{idx} ({c['id']})")
                     time.sleep(1.5)  # be gentle with Discord
             state["lastMaxNumber"] = current_max
