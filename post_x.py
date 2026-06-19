@@ -211,7 +211,8 @@ def build_tweet_text(idx, total, number):
     return (
         "✨ A new Bitcoin Wizard has been inscribed!\n"
         f"Wizard #{idx} of {total} — permanently on-chain ⚡\n"
-        "The legendary @bitcoinwizardry collection by @mavensbot is coming"
+        "The upcoming legendary @bitcoinwizardry collection by @mavensbot "
+        "will be a once-in-a-millennium masterpiece!"
     )
 
 
