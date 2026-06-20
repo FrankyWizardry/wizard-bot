@@ -1,10 +1,10 @@
 {
   "lastMaxNumber": 126702214,
   "lastHeartbeat": "2026-06-20T09:45:33.111468+00:00",
-  "lastXNumber": 126692972,
-  "xLastError": {
-    "at": "2026-06-20T09:45:32.378628+00:00",
-    "wizard": 126702212,
-    "error": "HTTP Error 404: Not Found"
+  "lastXNumber": 126702214,
+  "tweetUrls": {
+    "126702212": "https://x.com/bw_inscribe_bot/status/2068269200741707999",
+    "126702213": "https://x.com/bw_inscribe_bot/status/2068269216889766157",
+    "126702214": "https://x.com/bw_inscribe_bot/status/2068269232438014235"
   }
 }
