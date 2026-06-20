@@ -1,4 +1,4 @@
-  ##!/usr/bin/env python3
+x  ##!/usr/bin/env python3
 """
 Bitcoin Wizard -> Discord bot.
 
