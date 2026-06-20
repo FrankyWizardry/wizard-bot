@@ -78,10 +78,21 @@ def fetch_all_children():
 
 
 def download_image(iid):
+    """Download wizard image, retrying on 404 in case the render service
+    hasn't caught up with a brand-new inscription yet."""
     url = RENDER.format(iid=iid)
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=45) as r:
-        return r.read()
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=45) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and attempt < 4:
+                wait = 10 * (attempt + 1)  # 10s, 20s, 30s, 40s
+                print(f"Image not ready yet (404), retrying in {wait}s… (attempt {attempt + 1}/5)")
+                time.sleep(wait)
+                continue
+            raise
 
 
 # --- State --------------------------------------------------------------------
