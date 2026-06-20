@@ -89,12 +89,8 @@ def save_state(state):
 def build_embed(wizard_index, total, child):
     iid = child["id"]
     embed = {
-        "title": f"✨ A new Bitcoin Wizard has been inscribed!",
+        "title": f"Wizard #{wizard_index} has been inscribed!",
         "url": f"{ORD}/inscription/{iid}",
-        "description": (
-            f"**Wizard #{wizard_index}** of {total} — now permanently "
-            f"on-chain.\nInscription #{child['number']:,}"
-        ),
         "color": EMBED_COLOR,
         "footer": {"text": "Bitcoin Wizard • Magic Internet Money"},
     }
