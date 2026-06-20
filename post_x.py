@@ -49,6 +49,21 @@ USER_AGENT = "bitcoin-wizard-bot/1.0 (+https://www.bitcoinwizard.com)"
 X_TWEET_URL = "https://api.twitter.com/2/tweets"
 X_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json"
 
+# --- MIGRATION NOTE: v1.1 media upload (read before changing X_UPLOAD_URL) ----
+# As of June 2026 the v1.1 endpoint above still works for this bot (OAuth 1.0a).
+# X has been sunsetting it in favour of v2: https://api.x.com/2/media/upload
+#
+# WHEN TO MIGRATE: only if media uploads start failing. The signal is an
+# "xLastError" entry appearing in state.json (the live run records it there).
+#
+# WHY IT'S NOT A 1-LINE SWAP: per docs.x.com/x-api/media/upload-media the v2
+# endpoint authorises with OAuth 2.0 *Bearer* tokens (not the OAuth 1.0a
+# signature this bot uses) and *requires* a `media_category` field
+# (e.g. "tweet_image"). Migrating therefore means adding an OAuth 2.0 user-token
+# flow (with refresh) — a real change, not a drop-in. See upload_media_v2()
+# below for the request shape to start from once a Bearer token is available.
+# ------------------------------------------------------------------------------
+
 # --- HTTP helpers -------------------------------------------------------------
 
 def get_json(url, tries=4):
@@ -183,6 +198,42 @@ def upload_media(image_bytes, filename, mimetype, creds):
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"media upload error {e.code}: {e.read().decode(errors='replace')}")
     return resp["media_id_string"]
+
+
+# --- v2 media upload reference (NOT used yet — see MIGRATION NOTE above) -------
+# Drop-in shape for when v1.1 stops working. It expects an OAuth 2.0 user
+# *Bearer* token (oauth2_bearer), which this bot does NOT currently obtain —
+# wiring up that token flow is the real migration work. The v2 response nests
+# the media id under data.id (string) instead of v1.1's media_id_string.
+# Once a bearer token is available, swap tweet_wizard() to call this and pass
+# the returned id straight into post_tweet(media_ids=[...]).
+#
+# def upload_media_v2(image_bytes, filename, mimetype, oauth2_bearer):
+#     X_UPLOAD_URL_V2 = "https://api.x.com/2/media/upload"
+#     boundary = "----wiz" + base64.b64encode(os.urandom(12)).decode().strip("=\n")
+#     parts = [
+#         f"--{boundary}\r\n"
+#         f'Content-Disposition: form-data; name="media"; filename="{filename}"\r\n'
+#         f"Content-Type: {mimetype}\r\n\r\n".encode(),
+#         image_bytes,
+#         f"\r\n--{boundary}\r\n"
+#         'Content-Disposition: form-data; name="media_category"\r\n\r\n'
+#         "tweet_image".encode(),                      # media_category is REQUIRED in v2
+#         f"\r\n--{boundary}--\r\n".encode(),
+#     ]
+#     body = b"".join(parts)
+#     req = urllib.request.Request(
+#         X_UPLOAD_URL_V2, data=body, method="POST",
+#         headers={
+#             "Authorization": f"Bearer {oauth2_bearer}",
+#             "Content-Type":  f"multipart/form-data; boundary={boundary}",
+#             "User-Agent":    USER_AGENT,
+#         },
+#     )
+#     with urllib.request.urlopen(req, timeout=60) as r:
+#         resp = json.load(r)
+#     return resp["data"]["id"]
+# ------------------------------------------------------------------------------
 
 
 def post_tweet(text, creds, media_ids=None):
