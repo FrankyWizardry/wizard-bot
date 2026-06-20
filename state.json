@@ -1,7 +1,7 @@
 {
-  "lastMaxNumber": 126704839,
-  "lastHeartbeat": "2026-06-20T23:05:47.606193+00:00",
-  "lastXNumber": 126704839,
+  "lastMaxNumber": 126704990,
+  "lastHeartbeat": "2026-06-20T23:45:38.182739+00:00",
+  "lastXNumber": 126704990,
   "tweetUrls": {
     "126702212": "https://x.com/bw_inscribe_bot/status/2068269200741707999",
     "126702213": "https://x.com/bw_inscribe_bot/status/2068269216889766157",
@@ -22,6 +22,8 @@
     "126704744": "https://x.com/bw_inscribe_bot/status/2068461765499773040",
     "126704745": "https://x.com/bw_inscribe_bot/status/2068461781802971283",
     "126704838": "https://x.com/bw_inscribe_bot/status/2068470361029595347",
-    "126704839": "https://x.com/bw_inscribe_bot/status/2068470377630609896"
+    "126704839": "https://x.com/bw_inscribe_bot/status/2068470377630609896",
+    "126704989": "https://x.com/bw_inscribe_bot/status/2068480391531376677",
+    "126704990": "https://x.com/bw_inscribe_bot/status/2068480407394226277"
   }
 }
