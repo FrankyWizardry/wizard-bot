@@ -36,6 +36,9 @@ STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.jso
 HEARTBEAT_DAYS = 14          # commit a heartbeat at least this often (keeps the
                              # GitHub schedule from being auto-disabled)
 EMBED_COLOR = 0xF7931A       # Bitcoin orange
+# Rendered snapshot of each inscription. Always a real raster image (webp),
+# so Discord's image proxy can fetch and display it inside the embed.
+IMAGE_CDN = "https://render.ord.net/v4/snapshots/{iid}/512.webp"
 USER_AGENT = "bitcoin-wizard-bot/1.0 (+https://www.bitcoinwizard.com)"
 
 # --- Small HTTP helpers -----------------------------------------------------
@@ -86,21 +89,29 @@ def save_state(state):
 
 # --- Discord ----------------------------------------------------------------
 
-def build_embed(wizard_index, total, child):
+def build_embed(wizard_index, total, child, tweet_url=None):
     iid = child["id"]
     embed = {
+        "author": {"name": "10,000 Bitcoin Wizards · @bw_inscribe_bot"},
         "title": f"Wizard #{wizard_index} has been inscribed!",
         "url": f"{ORD}/inscription/{iid}",
+        "description": (
+            "✨ The upcoming legendary @bitcoinwizardry @mimcoinbtc collection "
+            "by @mavensbot will be a once-in-a-millennium masterpiece!"
+        ),
         "color": EMBED_COLOR,
+        "image": {"url": IMAGE_CDN.format(iid=iid)},
         "footer": {"text": "Bitcoin Wizard • Magic Internet Money"},
     }
-    # Optional link to the matching tweet (added by the X bot earlier in the run).
-    # Absent/None -> card is exactly as before, so this can't affect anything.
+    # If the X bot recorded a matching tweet earlier this run, link the author
+    # line to it (mirrors the look of a shared X post). Absent -> harmless.
+    if tweet_url:
+        embed["author"]["url"] = tweet_url
     return embed
 
 
 def post_discord(webhook, embed, tweet_url=None):
-    content = tweet_url if tweet_url else None
+    content = f"**Go like and retweet 💥** {tweet_url}" if tweet_url else None
     payload = {"username": "Bitcoin Wizard", "embeds": [embed]}
     if content:
         payload["content"] = content
@@ -177,7 +188,7 @@ def main():
                     print(f"[DRY RUN] would post Wizard #{idx} ({c['id']})")
                 else:
                     tweet_url = tweet_urls.get(str(c["number"]))
-                    post_discord(webhook, build_embed(idx, total, c), tweet_url=tweet_url)
+                    post_discord(webhook, build_embed(idx, total, c, tweet_url=tweet_url), tweet_url=tweet_url)
                     print(f"Posted Wizard #{idx} ({c['id']})")
                     time.sleep(1.5)  # be gentle with Discord
             state["lastMaxNumber"] = current_max
