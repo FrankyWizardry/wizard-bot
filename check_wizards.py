@@ -89,15 +89,15 @@ def save_state(state):
 def build_embed(wizard_index, total, child, tweet_url=None):
     iid = child["id"]
     embed = {
-        "title": f"â¨ A new Bitcoin Wizard has been inscribed!",
+        "title": f"✨ A new Bitcoin Wizard has been inscribed!",
         "url": f"{ORD}/inscription/{iid}",
         "description": (
-            f"**Wizard #{wizard_index}** of {total} â now permanently "
+            f"**Wizard #{wizard_index}** of {total} — now permanently "
             f"on-chain.\nInscription #{child['number']:,}"
         ),
         "color": EMBED_COLOR,
         "image": {"url": f"{ORD}/content/{iid}"},
-        "footer": {"text": "Bitcoin Wizard â¢ Magic Internet Money"},
+        "footer": {"text": "Bitcoin Wizard • Magic Internet Money"},
     }
     # Optional link to the matching tweet (added by the X bot earlier in the run).
     # Absent/None -> card is exactly as before, so this can't affect anything.
