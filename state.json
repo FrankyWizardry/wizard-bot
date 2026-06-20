@@ -1,5 +1,10 @@
 {
-  "lastMaxNumber": 126692972,
-  "lastHeartbeat": "2026-06-18T21:00:09.652302+00:00",
-  "lastXNumber": 126692972
+  "lastMaxNumber": 126702214,
+  "lastHeartbeat": "2026-06-20T09:45:33.111468+00:00",
+  "lastXNumber": 126692972,
+  "xLastError": {
+    "at": "2026-06-20T09:45:32.378628+00:00",
+    "wizard": 126702212,
+    "error": "HTTP Error 404: Not Found"
+  }
 }
