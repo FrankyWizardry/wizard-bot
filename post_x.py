@@ -272,7 +272,7 @@ def post_tweet(text, creds, media_ids=None):
 def build_tweet_text(idx, total, number):
     # No URLs / bare domains (X bills those at the higher rate). @mentions are OK.
     return (
-        f"✨ Bitcoin Wizard #{idx} of {total} has been inscribed 🧙‍♂️\n"
+        f"✨ Bitcoin Wizard #{idx} has been inscribed 🧙‍♂️\n"
         "The upcoming legendary @bitcoinwizardry @mimcoinbtc collection by @mavensbot "
         "will be a once-in-a-millennium masterpiece!"
     )
